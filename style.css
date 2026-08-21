@@ -1142,22 +1142,63 @@ input, textarea, select {
 }
 
 /* --------------------------------------------------------------------------
-   9. Interactive Mathematics & Geometry Section
+   9. Community Section — "Kolam of the Day"
    -------------------------------------------------------------------------- */
-.math-section {
+.community-section {
   padding: 100px 24px;
-  max-width: 1200px;
+  max-width: 1100px;
   margin: 0 auto;
 }
 
-.math-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-  gap: 32px;
-  margin-top: 50px;
+/* Featured "Kolam of the Day" hero card */
+.kotd-hero {
+  margin-top: 40px;
 }
 
-.math-card {
+.kotd-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  background: var(--terracotta-light);
+  color: var(--terracotta-hover);
+  border: 1px solid var(--border-terracotta);
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-bottom: 20px;
+}
+
+.kotd-badge i {
+  color: var(--gold);
+}
+
+.kotd-card {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 32px;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  box-shadow: var(--shadow-lg);
+}
+
+.kotd-image-frame {
+  border: 2px solid var(--gold);
+  box-shadow: var(--shadow-glow);
+}
+
+.kotd-info h3 {
+  font-family: var(--font-serif);
+  font-size: 1.8rem;
+  color: var(--maroon);
+  margin-bottom: 8px;
+}
+
+/* Upload / Share Box */
+.community-upload-box {
+  margin-top: 50px;
   background: var(--bg-card);
   border: 1.5px solid var(--border-subtle);
   border-radius: var(--radius-lg);
@@ -1165,168 +1206,197 @@ input, textarea, select {
   box-shadow: var(--shadow-md);
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  transition: var(--transition-smooth);
+  gap: 16px;
 }
 
-.math-card:hover {
-  transform: translateY(-6px);
-  border-color: var(--terracotta);
-  box-shadow: var(--shadow-lg);
-}
-
-.math-card-header {
+.upload-box-title {
+  font-size: 1.3rem;
+  color: var(--maroon);
   display: flex;
   align-items: center;
-  gap: 12px;
-}
-
-.math-num {
-  font-family: var(--font-serif);
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: var(--saffron);
-}
-
-.math-card-title {
-  font-size: 1.5rem;
-  color: var(--maroon);
-}
-
-.math-interactive-area {
-  position: relative;
-  width: 100%;
-  height: 240px;
-  background: var(--bg-paper);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  display: grid;
-  place-items: center;
-}
-
-/* Grid Selector Controls */
-.grid-controls {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-}
-
-.grid-btn {
-  padding: 6px 14px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  background: var(--bg-card);
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: var(--text-dark);
-  transition: var(--transition-fast);
-}
-
-.grid-btn.active, .grid-btn:hover {
-  background: var(--terracotta);
-  color: #FFF;
-  border-color: var(--terracotta);
-}
-
-/* Canvas styling inside math cards */
-.math-canvas {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-/* Interactive Symmetry Visualizer Canvas */
-#symmetry-canvas {
-  cursor: crosshair;
-}
-
-.symmetry-controls {
-  display: flex;
   gap: 10px;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
 }
 
-/* Algorithm Step Builder Section */
-.algorithm-builder-section {
-  margin-top: 60px;
-  background: var(--bg-card);
-  border: 1.5px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  padding: 40px;
-  box-shadow: var(--shadow-lg);
-}
-
-.algo-flowchart {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin: 30px 0;
-}
-
-.algo-step-node {
-  flex: 1;
-  min-width: 120px;
-  padding: 16px;
-  background: var(--bg-paper);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  text-align: center;
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: var(--maroon);
-  transition: var(--transition-fast);
-}
-
-.algo-step-node.active {
-  background: var(--terracotta-light);
-  border-color: var(--terracotta);
-  transform: scale(1.05);
-}
-
-.algo-arrow {
-  color: var(--terracotta);
-  font-weight: bold;
-}
-
-/* --------------------------------------------------------------------------
-   10. About Section
-   -------------------------------------------------------------------------- */
-.about-section {
-  padding: 100px 24px;
-  max-width: 1000px;
-  margin: 0 auto;
-  text-align: center;
-}
-
-.about-cards {
+/* Community Feed Grid */
+.community-feed {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 28px;
-  margin-top: 40px;
-  text-align: left;
+  margin-top: 50px;
 }
 
-.about-card {
+.community-post-card {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: 28px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
   box-shadow: var(--shadow-sm);
+  transition: var(--transition-smooth);
+  display: flex;
+  flex-direction: column;
 }
 
-.about-icon {
-  font-size: 2rem;
+.community-post-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--terracotta);
+  box-shadow: var(--shadow-lg);
+}
+
+.post-image-frame {
+  width: 100%;
+  aspect-ratio: 1/1;
+  background: var(--bg-paper);
+  overflow: hidden;
+  display: block;
+}
+
+.post-image-frame svg,
+.post-image-frame img.post-uploaded-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.post-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.post-author {
+  font-weight: 600;
+  color: var(--maroon);
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.post-author i {
   color: var(--terracotta);
-  margin-bottom: 12px;
+}
+
+.post-date {
+  font-weight: 400;
+  color: var(--text-light);
+}
+
+.post-caption {
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.post-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.like-btn, .comment-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-paper);
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.85rem;
+  transition: var(--transition-fast);
+  cursor: pointer;
+}
+
+.like-btn:hover, .comment-toggle-btn:hover {
+  border-color: var(--terracotta);
+  color: var(--terracotta);
+}
+
+.like-btn.liked {
+  background: var(--terracotta);
+  border-color: var(--terracotta);
+  color: #FFF;
+}
+
+.like-btn.liked i {
+  color: #FFF;
+}
+
+.like-btn i {
+  color: var(--terracotta);
+}
+
+/* Comments Panel */
+.post-comments {
+  display: none;
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+  flex-direction: column;
+  gap: 10px;
+}
+
+.post-comments.open {
+  display: flex;
+}
+
+.comment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.comment-item {
+  font-size: 0.85rem;
+  color: var(--text-dark);
+  background: var(--bg-paper);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+}
+
+.no-comments {
+  font-size: 0.85rem;
+  color: var(--text-light);
+  font-style: italic;
+}
+
+.comment-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.comment-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-paper);
+  color: var(--text-dark);
+  font-size: 0.85rem;
+}
+
+.comment-input:focus {
+  outline: none;
+  border-color: var(--terracotta);
+}
+
+.comment-send-btn {
+  padding: 8px 12px;
+}
+
+@media (max-width: 768px) {
+  .kotd-card {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* --------------------------------------------------------------------------
-   11. Local Gallery Modal
+   10. Local Gallery Modal
    -------------------------------------------------------------------------- */
 .gallery-modal {
   position: fixed;
