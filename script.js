@@ -23,12 +23,9 @@ let kolamFacts = [];
 let factIntervalTimer = null;
 let loadingTimeoutTimer = null;
 
-// Mathematics Visualizer States
-let activeGridSize = 3;
-let activeGeometryStyle = 'circles';
-let symmetryFoldMode = 4; // 4-fold or 8-fold
-let currentAlgoStep = 1;
-let algoAutoPlayTimer = null;
+// Community Wall State
+let communitySelectedImageDataUrl = null;
+const COMMUNITY_STORAGE_KEY = 'kolam_community_state';
 
 // --------------------------------------------------------------------------
 // 2. Application Initialization
@@ -37,9 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initNavigation();
   initHeroCanvas();
   initVoiceChat();
-  initMathVisualizers();
-  initSymmetryCanvas();
-  initAlgorithmVisualizer();
+  initCommunity();
   loadFacts();
   checkBackendHealth();
   
@@ -729,311 +724,374 @@ function createProceduralKolamDataUrl(prompt) {
 }
 
 // --------------------------------------------------------------------------
-// 11. Mathematics & Geometry Interactive Cards
+// 11. Community Wall — "Kolam of the Day"
 // --------------------------------------------------------------------------
-function initMathVisualizers() {
-  drawGridCanvas();
-  drawGeometryCanvas();
+
+// Procedurally generates a distinct radial Kolam pattern as an inline SVG
+// string, using only the site's existing terracotta/maroon/gold palette.
+function generateKolamSVG({ folds = 6, dotRings = 3, petalCurve = 55, color1 = '#C85A32', color2 = '#6B1D2F', color3 = '#D4AF37', bg = '#F5EFE6' } = {}) {
+  const size = 240;
+  const cx = size / 2;
+  const cy = size / 2;
+
+  let dots = '';
+  for (let ring = 1; ring <= dotRings; ring++) {
+    const r = ring * (size * 0.15);
+    const count = ring * 6;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 / count) * i;
+      const x = (cx + Math.cos(angle) * r).toFixed(1);
+      const y = (cy + Math.sin(angle) * r).toFixed(1);
+      dots += `<circle cx="${x}" cy="${y}" r="2.4" fill="${color2}" />`;
+    }
+  }
+
+  let petals = '';
+  for (let f = 0; f < folds; f++) {
+    const angle = (360 / folds) * f;
+    petals += `<g transform="rotate(${angle} ${cx} ${cy})">
+      <path d="M ${cx} ${cy} Q ${cx + petalCurve} ${cy - petalCurve * 0.9} ${cx + petalCurve * 1.5} ${cy} Q ${cx + petalCurve} ${cy + petalCurve * 0.9} ${cx} ${cy}" fill="none" stroke="${color1}" stroke-width="3" />
+      <circle cx="${(cx + petalCurve * 1.4).toFixed(1)}" cy="${cy}" r="4" fill="${color3}" />
+    </g>`;
+  }
+
+  return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg" class="kolam-generated-svg">
+    <rect width="${size}" height="${size}" fill="${bg}" />
+    <circle cx="${cx}" cy="${cy}" r="${size * 0.44}" fill="none" stroke="${color1}" stroke-width="2" stroke-dasharray="4 5" />
+    ${dots}
+    ${petals}
+    <circle cx="${cx}" cy="${cy}" r="6" fill="${color1}" />
+  </svg>`;
 }
 
-function setGridSize(size) {
-  activeGridSize = size;
-  document.querySelectorAll('.grid-controls .grid-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.textContent.includes(`${size}`));
+// 5 sample "seed" posts so the Community Wall never looks empty, even
+// before any real backend storage or real user uploads exist.
+const KOLAM_SAMPLES = [
+  {
+    id: 'sample-1',
+    title: 'Lotus Bloom Kolam',
+    author: 'Meena R.',
+    caption: 'Drawn fresh this morning with rice flour — 6-fold lotus symmetry.',
+    svg: generateKolamSVG({ folds: 6, dotRings: 3, petalCurve: 55 })
+  },
+  {
+    id: 'sample-2',
+    title: '8-Fold Mandala',
+    author: 'Priya K.',
+    caption: 'My grandmother taught me this mandala style Kolam.',
+    svg: generateKolamSVG({ folds: 8, dotRings: 2, petalCurve: 45, color1: '#6B1D2F', color3: '#C85A32' })
+  },
+  {
+    id: 'sample-3',
+    title: 'Classic Pulli Grid',
+    author: 'Lakshmi S.',
+    caption: 'A traditional grid style Kolam, simple and elegant.',
+    svg: generateKolamSVG({ folds: 4, dotRings: 4, petalCurve: 65 })
+  },
+  {
+    id: 'sample-4',
+    title: 'Sunburst Sikku Loop',
+    author: 'Anitha V.',
+    caption: 'Continuous loop, no lifted hand — a proper Sikku Kolam!',
+    svg: generateKolamSVG({ folds: 12, dotRings: 2, petalCurve: 35, color1: '#D4AF37', color3: '#6B1D2F' })
+  },
+  {
+    id: 'sample-5',
+    title: 'Five-Fold Star Kolam',
+    author: 'Divya N.',
+    caption: 'Festival special design for this Pongal.',
+    svg: generateKolamSVG({ folds: 5, dotRings: 3, petalCurve: 50 })
+  }
+];
+
+const KOLAM_SAMPLE_BASE_LIKES = { 'sample-1': 24, 'sample-2': 41, 'sample-3': 17, 'sample-4': 33, 'sample-5': 29 };
+
+function getCommunityState() {
+  let state = JSON.parse(localStorage.getItem(COMMUNITY_STORAGE_KEY) || 'null');
+  if (!state) {
+    state = { likes: {}, comments: {}, userPosts: [] };
+    KOLAM_SAMPLES.forEach(s => {
+      state.likes[s.id] = { count: KOLAM_SAMPLE_BASE_LIKES[s.id] || 15, liked: false };
+      state.comments[s.id] = [];
+    });
+    saveCommunityState(state);
+  }
+  return state;
+}
+
+function saveCommunityState(state) {
+  localStorage.setItem(COMMUNITY_STORAGE_KEY, JSON.stringify(state));
+}
+
+function escapeHTML(str) {
+  const div = document.createElement('div');
+  div.textContent = str == null ? '' : str;
+  return div.innerHTML;
+}
+
+function getKolamOfTheDay() {
+  const dayIndex = Math.floor(Date.now() / 86400000) % KOLAM_SAMPLES.length;
+  return KOLAM_SAMPLES[dayIndex];
+}
+
+function initCommunity() {
+  renderKolamOfTheDay();
+  renderCommunityFeed();
+  setupCommunityDropzone();
+}
+
+function renderKolamOfTheDay() {
+  const container = document.getElementById('kotd-hero');
+  if (!container) return;
+
+  const featured = getKolamOfTheDay();
+  const state = getCommunityState();
+  const likeData = state.likes[featured.id] || { count: 0, liked: false };
+  const commentCount = (state.comments[featured.id] || []).length;
+  const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  container.innerHTML = `
+    <div class="kotd-badge"><i class="fa-solid fa-star"></i> Today's Pick — ${dateStr}</div>
+    <div class="kotd-card">
+      <div class="post-image-frame kotd-image-frame">${featured.svg}</div>
+      <div class="post-body kotd-info">
+        <h3>${escapeHTML(featured.title)}</h3>
+        <p class="post-author"><i class="fa-solid fa-user"></i> ${escapeHTML(featured.author)}</p>
+        <p class="post-caption">${escapeHTML(featured.caption)}</p>
+        <div class="post-actions">
+          <button class="like-btn ${likeData.liked ? 'liked' : ''}" onclick="toggleLike('${featured.id}')" id="like-btn-${featured.id}">
+            <i class="fa-solid fa-heart"></i> <span id="like-count-${featured.id}">${likeData.count}</span>
+          </button>
+          <button class="comment-toggle-btn" onclick="toggleComments('${featured.id}')">
+            <i class="fa-solid fa-comment"></i> <span id="comment-count-${featured.id}">${commentCount}</span>
+          </button>
+        </div>
+        <div class="post-comments" id="comments-${featured.id}"></div>
+      </div>
+    </div>
+  `;
+}
+
+function buildPostCard(post, isUserPost) {
+  const state = getCommunityState();
+  const likeData = state.likes[post.id] || { count: 0, liked: false };
+  const commentCount = (state.comments[post.id] || []).length;
+  const imageContent = isUserPost
+    ? `<img src="${post.image}" alt="${escapeHTML(post.title)}" class="post-uploaded-img">`
+    : post.svg;
+
+  return `
+    <div class="community-post-card">
+      <div class="post-image-frame">${imageContent}</div>
+      <div class="post-body">
+        <p class="post-author"><i class="fa-solid fa-user"></i> ${escapeHTML(post.author)} <span class="post-date">• ${escapeHTML(post.date || 'Today')}</span></p>
+        ${post.caption ? `<p class="post-caption">${escapeHTML(post.caption)}</p>` : ''}
+        <div class="post-actions">
+          <button class="like-btn ${likeData.liked ? 'liked' : ''}" onclick="toggleLike('${post.id}')" id="like-btn-${post.id}">
+            <i class="fa-solid fa-heart"></i> <span id="like-count-${post.id}">${likeData.count}</span>
+          </button>
+          <button class="comment-toggle-btn" onclick="toggleComments('${post.id}')">
+            <i class="fa-solid fa-comment"></i> <span id="comment-count-${post.id}">${commentCount}</span>
+          </button>
+        </div>
+        <div class="post-comments" id="comments-${post.id}"></div>
+      </div>
+    </div>
+  `;
+}
+
+function renderCommunityFeed() {
+  const feedEl = document.getElementById('community-feed');
+  if (!feedEl) return;
+
+  const featuredId = getKolamOfTheDay().id;
+  const state = getCommunityState();
+
+  const userPostsHTML = state.userPosts.map(p => buildPostCard(p, true)).join('');
+  const sampleHTML = KOLAM_SAMPLES.filter(s => s.id !== featuredId).map(s => buildPostCard(s, false)).join('');
+
+  feedEl.innerHTML = userPostsHTML + sampleHTML || '<p style="color: var(--text-muted);">No posts yet.</p>';
+}
+
+function toggleLike(postId) {
+  const state = getCommunityState();
+  if (!state.likes[postId]) state.likes[postId] = { count: 0, liked: false };
+
+  const data = state.likes[postId];
+  data.liked = !data.liked;
+  data.count += data.liked ? 1 : -1;
+  saveCommunityState(state);
+
+  const btn = document.getElementById(`like-btn-${postId}`);
+  const countEl = document.getElementById(`like-count-${postId}`);
+  if (btn) btn.classList.toggle('liked', data.liked);
+  if (countEl) countEl.textContent = data.count;
+}
+
+function toggleComments(postId) {
+  const panel = document.getElementById(`comments-${postId}`);
+  if (!panel) return;
+  const isOpen = panel.classList.toggle('open');
+  if (isOpen) renderCommentPanel(postId);
+}
+
+function renderCommentPanel(postId) {
+  const panel = document.getElementById(`comments-${postId}`);
+  if (!panel) return;
+
+  const state = getCommunityState();
+  const comments = state.comments[postId] || [];
+
+  panel.innerHTML = `
+    <div class="comment-list">
+      ${comments.length === 0
+        ? '<p class="no-comments">No comments yet. Be the first!</p>'
+        : comments.map(c => `<div class="comment-item"><strong>${escapeHTML(c.author)}:</strong> ${escapeHTML(c.text)}</div>`).join('')}
+    </div>
+    <div class="comment-input-row">
+      <input type="text" class="comment-input" id="comment-input-${postId}" placeholder="Add a comment..." onkeydown="if(event.key==='Enter') addComment('${postId}')">
+      <button class="btn-secondary comment-send-btn" onclick="addComment('${postId}')"><i class="fa-solid fa-paper-plane"></i></button>
+    </div>
+  `;
+}
+
+function addComment(postId) {
+  const input = document.getElementById(`comment-input-${postId}`);
+  if (!input || !input.value.trim()) return;
+
+  const state = getCommunityState();
+  if (!state.comments[postId]) state.comments[postId] = [];
+  state.comments[postId].push({ author: 'You', text: input.value.trim() });
+  saveCommunityState(state);
+
+  input.value = '';
+  renderCommentPanel(postId);
+
+  const countEl = document.getElementById(`comment-count-${postId}`);
+  if (countEl) countEl.textContent = state.comments[postId].length;
+
+  showToast('Comment added!', 'success');
+}
+
+// --- Community Upload Flow (mirrors the Restore upload, but posts to the feed) ---
+
+function setupCommunityDropzone() {
+  const dropzone = document.getElementById('community-dropzone');
+  if (!dropzone) return;
+
+  ['dragenter', 'dragover'].forEach(eventName => {
+    dropzone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      dropzone.classList.add('drag-over');
+    }, false);
   });
-  drawGridCanvas();
-}
 
-function drawGridCanvas() {
-  const canvas = document.getElementById('grid-canvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  canvas.width = canvas.parentElement.clientWidth;
-  canvas.height = canvas.parentElement.clientHeight;
+  ['dragleave', 'drop'].forEach(eventName => {
+    dropzone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('drag-over');
+    }, false);
+  });
 
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  const cx = canvas.width / 2;
-  const cy = canvas.height / 2;
-  const spacing = Math.min(canvas.width, canvas.height) * 0.16;
-
-  ctx.fillStyle = '#C85A32';
-  const start = -Math.floor(activeGridSize / 2);
-  const end = Math.floor(activeGridSize / 2);
-
-  for (let r = start; r <= end; r++) {
-    for (let c = start; c <= end; c++) {
-      ctx.beginPath();
-      ctx.arc(cx + c * spacing, cy + r * spacing, 5, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-}
-
-function toggleGeometryCurve(style) {
-  activeGeometryStyle = style;
-  drawGeometryCanvas();
-}
-
-function drawGeometryCanvas() {
-  const canvas = document.getElementById('geometry-canvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  canvas.width = canvas.parentElement.clientWidth;
-  canvas.height = canvas.parentElement.clientHeight;
-
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  const cx = canvas.width / 2;
-  const cy = canvas.height / 2;
-  const spacing = 50;
-
-  // Dots
-  ctx.fillStyle = '#C85A32';
-  for (let r = -1; r <= 1; r++) {
-    for (let c = -1; c <= 1; c++) {
-      ctx.beginPath();
-      ctx.arc(cx + c * spacing, cy + r * spacing, 4, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-
-  // Curves based on active style
-  ctx.strokeStyle = '#6B1D2F';
-  ctx.lineWidth = 3;
-
-  if (activeGeometryStyle === 'circles') {
-    ctx.beginPath();
-    ctx.arc(cx, cy, spacing * 1.2, 0, Math.PI * 2);
-    ctx.stroke();
-  } else if (activeGeometryStyle === 'arcs') {
-    for (let i = 0; i < 4; i++) {
-      ctx.beginPath();
-      ctx.arc(cx + (i%2 === 0 ? spacing : -spacing), cy, spacing * 0.8, 0, Math.PI);
-      ctx.stroke();
-    }
-  } else if (activeGeometryStyle === 'loops') {
-    ctx.beginPath();
-    ctx.moveTo(cx - spacing, cy);
-    ctx.quadraticCurveTo(cx, cy - spacing * 1.5, cx + spacing, cy);
-    ctx.quadraticCurveTo(cx + spacing * 1.5, cy + spacing * 1.5, cx, cy + spacing);
-    ctx.quadraticCurveTo(cx - spacing * 1.5, cy + spacing * 1.5, cx - spacing, cy);
-    ctx.stroke();
-  }
-}
-
-// --------------------------------------------------------------------------
-// 12. Interactive Symmetry Mirroring Canvas
-// --------------------------------------------------------------------------
-function initSymmetryCanvas() {
-  const canvas = document.getElementById('symmetry-canvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-
-  function resize() {
-    canvas.width = canvas.parentElement.clientWidth;
-    canvas.height = canvas.parentElement.clientHeight;
-    clearSymmetryCanvas();
-  }
-  resize();
-
-  let isDrawing = false;
-
-  canvas.addEventListener('mousedown', () => isDrawing = true);
-  window.addEventListener('mouseup', () => isDrawing = false);
-  canvas.addEventListener('mousemove', (e) => {
-    if (!isDrawing) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    drawSymmetricalStroke(ctx, canvas.width, canvas.height, x, y);
+  dropzone.addEventListener('drop', (e) => {
+    const file = e.dataTransfer.files[0];
+    if (file) processCommunityImage(file);
   });
 }
 
-function toggleSymmetryFold() {
-  symmetryFoldMode = symmetryFoldMode === 4 ? 8 : 4;
-  const btn = document.getElementById('btn-symmetry-fold');
-  if (btn) btn.textContent = `${symmetryFoldMode}-Fold Reflection`;
-  clearSymmetryCanvas();
+function handleCommunityFileSelect(event) {
+  const file = event.target.files[0];
+  if (file) processCommunityImage(file);
 }
 
-function clearSymmetryCanvas() {
-  const canvas = document.getElementById('symmetry-canvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // Draw axis lines
-  ctx.strokeStyle = 'rgba(200, 90, 50, 0.2)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(canvas.width / 2, 0);
-  ctx.lineTo(canvas.width / 2, canvas.height);
-  ctx.moveTo(0, canvas.height / 2);
-  ctx.lineTo(canvas.width, canvas.height / 2);
-  ctx.stroke();
-}
-
-function drawSymmetricalStroke(ctx, w, h, mouseX, mouseY) {
-  const cx = w / 2;
-  const cy = h / 2;
-  const dx = mouseX - cx;
-  const dy = mouseY - cy;
-
-  ctx.fillStyle = '#6B1D2F';
-  
-  const pointsCount = symmetryFoldMode;
-  for (let i = 0; i < pointsCount; i++) {
-    const angle = (Math.PI * 2 / pointsCount) * i;
-    const rx = dx * Math.cos(angle) - dy * Math.sin(angle);
-    const ry = dx * Math.sin(angle) + dy * Math.cos(angle);
-
-    ctx.beginPath();
-    ctx.arc(cx + rx, cy + ry, 3, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
-
-function drawSampleSymmetry() {
-  clearSymmetryCanvas();
-  const canvas = document.getElementById('symmetry-canvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-
-  const cx = canvas.width / 2;
-  const cy = canvas.height / 2;
-
-  for (let t = 0; t < Math.PI * 2; t += 0.05) {
-    const radius = 60 + Math.sin(t * 5) * 25;
-    const x = cx + Math.cos(t) * radius;
-    const y = cy + Math.sin(t) * radius;
-    drawSymmetricalStroke(ctx, canvas.width, canvas.height, x, y);
-  }
-}
-
-// --------------------------------------------------------------------------
-// 13. Step-by-Step Generative Algorithm Visualizer ("Build the Kolam")
-// --------------------------------------------------------------------------
-function initAlgorithmVisualizer() {
-  renderAlgorithmStep(1);
-}
-
-function nextAlgorithmStep() {
-  currentAlgoStep = (currentAlgoStep % 6) + 1;
-  renderAlgorithmStep(currentAlgoStep);
-}
-
-function resetAlgorithm() {
-  currentAlgoStep = 1;
-  if (algoAutoPlayTimer) clearInterval(algoAutoPlayTimer);
-  renderAlgorithmStep(1);
-}
-
-function autoPlayAlgorithm() {
-  if (algoAutoPlayTimer) clearInterval(algoAutoPlayTimer);
-  currentAlgoStep = 1;
-  renderAlgorithmStep(currentAlgoStep);
-
-  algoAutoPlayTimer = setInterval(() => {
-    currentAlgoStep++;
-    if (currentAlgoStep > 6) {
-      clearInterval(algoAutoPlayTimer);
-      currentAlgoStep = 6;
-    }
-    renderAlgorithmStep(currentAlgoStep);
-  }, 1200);
-}
-
-function renderAlgorithmStep(step) {
-  // Update UI step indicator
-  for (let i = 1; i <= 6; i++) {
-    const node = document.getElementById(`step-node-${i}`);
-    if (node) node.classList.toggle('active', i <= step);
+function processCommunityImage(file) {
+  if (!file.type.startsWith('image/')) {
+    showToast("Please select a valid image file.", "error");
+    return;
   }
 
-  const canvas = document.getElementById('build-canvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  canvas.width = canvas.parentElement.clientWidth;
-  canvas.height = canvas.parentElement.clientHeight;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const maxDim = 800;
+      let width = img.width;
+      let height = img.height;
 
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const cx = canvas.width / 2;
-  const cy = canvas.height / 2;
-  const spacing = 45;
-
-  // Step 1: Dot Grid
-  if (step >= 1) {
-    ctx.fillStyle = '#C85A32';
-    for (let r = -2; r <= 2; r++) {
-      for (let c = -2; c <= 2; c++) {
-        ctx.beginPath();
-        ctx.arc(cx + c * spacing, cy + r * spacing, 5, 0, Math.PI * 2);
-        ctx.fill();
+      if (width > maxDim || height > maxDim) {
+        if (width > height) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
       }
-    }
-  }
 
-  // Step 2: Coordinates Alignment
-  if (step >= 2) {
-    ctx.strokeStyle = 'rgba(212, 175, 55, 0.4)';
-    ctx.lineWidth = 1;
-    for (let i = -2; i <= 2; i++) {
-      ctx.beginPath();
-      ctx.moveTo(cx + i * spacing, cy - 90);
-      ctx.lineTo(cx + i * spacing, cy + 90);
-      ctx.moveTo(cx - 90, cy + i * spacing);
-      ctx.lineTo(cx + 90, cy + i * spacing);
-      ctx.stroke();
-    }
-  }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
 
-  // Step 3: Symmetry Axes
-  if (step >= 3) {
-    ctx.strokeStyle = 'rgba(200, 90, 50, 0.6)';
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    ctx.moveTo(cx, 0); ctx.lineTo(cx, canvas.height);
-    ctx.moveTo(0, cy); ctx.lineTo(canvas.width, cy);
-    ctx.stroke();
-    ctx.setLineDash([]);
-  }
+      communitySelectedImageDataUrl = canvas.toDataURL('image/jpeg', 0.75);
 
-  // Step 4: Curves Connection
-  if (step >= 4) {
-    ctx.strokeStyle = '#6B1D2F';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(cx, cy, spacing * 1.4, 0, Math.PI * 2);
-    ctx.stroke();
-  }
+      const previewImg = document.getElementById('community-preview-img');
+      const previewContainer = document.getElementById('community-preview-container');
+      const submitBtn = document.getElementById('btn-community-submit');
 
-  // Step 5: Motif Repeat
-  if (step >= 5) {
-    ctx.strokeStyle = '#E69A28';
-    ctx.lineWidth = 2.5;
-    for (let i = 0; i < 4; i++) {
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate((Math.PI / 2) * i);
-      ctx.beginPath();
-      ctx.arc(spacing * 1.5, 0, spacing * 0.6, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.restore();
-    }
-  }
+      if (previewImg) previewImg.src = communitySelectedImageDataUrl;
+      if (previewContainer) previewContainer.style.display = 'block';
+      if (submitBtn) submitBtn.style.display = 'inline-flex';
 
-  // Step 6: Complete Kolam Output
-  if (step >= 6) {
-    ctx.strokeStyle = '#6B1D2F';
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.arc(cx, cy, spacing * 2.2, 0, Math.PI * 2);
-    ctx.stroke();
-  }
+      showToast("Image ready to share!", "success");
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
 }
 
-// --------------------------------------------------------------------------
+function clearCommunitySelectedImage() {
+  communitySelectedImageDataUrl = null;
+  const previewContainer = document.getElementById('community-preview-container');
+  const submitBtn = document.getElementById('btn-community-submit');
+  const fileInput = document.getElementById('community-file-input');
+  if (previewContainer) previewContainer.style.display = 'none';
+  if (submitBtn) submitBtn.style.display = 'none';
+  if (fileInput) fileInput.value = '';
+}
+
+function submitCommunityPost() {
+  if (!communitySelectedImageDataUrl) {
+    showToast("Please select an image to share!", "error");
+    return;
+  }
+
+  const captionInput = document.getElementById('community-caption');
+  const caption = captionInput ? captionInput.value.trim() : '';
+
+  const newPost = {
+    id: `user-${Date.now()}`,
+    title: 'Community Kolam',
+    author: 'You',
+    caption: caption,
+    image: communitySelectedImageDataUrl,
+    date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  };
+
+  const state = getCommunityState();
+  state.userPosts.unshift(newPost);
+  state.likes[newPost.id] = { count: 0, liked: false };
+  state.comments[newPost.id] = [];
+  saveCommunityState(state);
+
+  clearCommunitySelectedImage();
+  if (captionInput) captionInput.value = '';
+
+  renderCommunityFeed();
+  showToast("Your Kolam has been shared with the community!", "success");
+}
+
 // 14. Utilities: Toast & Downloads & Local Storage Gallery
 // --------------------------------------------------------------------------
 function showToast(message, type = "info") {
