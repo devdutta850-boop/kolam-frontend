@@ -9,7 +9,7 @@
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,400&family=Fira+Code:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,400&family=Fira+Code:wght@400;500&family=Inter:wght@400;500;600;700&family=Tiro+Devanagari+Hindi&family=Tiro+Tamil&display=swap" rel="stylesheet">
 
   <!-- Font Awesome Icons CDN (Lightweight) -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -17,7 +17,82 @@
   <!-- Main Stylesheet -->
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="splash-locked">
+
+  <!-- ------------------------------------------------------------------------
+       0. Entry Splash — Kolam Drawing Ritual (auto-dismisses after 10s)
+       ------------------------------------------------------------------------ -->
+  <div class="intro-splash" id="intro-splash" role="dialog" aria-label="Kolam introduction">
+    <div class="intro-splash-paper" aria-hidden="true"></div>
+
+    <!-- Toran: hanging paisley/mango-leaf garland strip -->
+    <div class="intro-splash-toran" aria-hidden="true"></div>
+
+    <!-- Falling flower petals -->
+    <div class="intro-splash-petals" id="intro-splash-petals" aria-hidden="true"></div>
+
+    <!-- Classical mathematical notation drifting around the splash -->
+    <div class="loading-math" aria-hidden="true">
+      <span class="loading-math-symbol loading-math-symbol--one">P<sub>i,j</sub> &isin; {0, 1}</span>
+      <span class="loading-math-symbol loading-math-symbol--two">R<sub>n</sub>(&theta;) = 2&pi; / n</span>
+      <span class="loading-math-symbol loading-math-symbol--three">G = (V, E)</span>
+      <span class="loading-math-symbol loading-math-symbol--four">V &minus; E + F = 2</span>
+      <span class="loading-math-symbol loading-math-symbol--five">r = a cos(n&theta;)</span>
+      <span class="loading-math-symbol loading-math-symbol--six">&sum;<sub>k=1</sub><sup>n</sup> &ang; e<sub>k</sub> = 2&pi;</span>
+    </div>
+
+    <!-- Ornamental Frame Corners -->
+    <span class="intro-splash-frame-corner intro-splash-frame-corner--tl" aria-hidden="true"></span>
+    <span class="intro-splash-frame-corner intro-splash-frame-corner--tr" aria-hidden="true"></span>
+    <span class="intro-splash-frame-corner intro-splash-frame-corner--bl" aria-hidden="true"></span>
+    <span class="intro-splash-frame-corner intro-splash-frame-corner--br" aria-hidden="true"></span>
+
+    <!-- Four Corner Kolam Motifs -->
+    <div class="intro-splash-corner intro-splash-corner--tl" aria-hidden="true">
+      <svg class="intro-corner-svg" viewBox="0 0 120 120"><g class="corner-dots"></g><g class="corner-lines"></g></svg>
+    </div>
+    <div class="intro-splash-corner intro-splash-corner--tr" aria-hidden="true">
+      <svg class="intro-corner-svg" viewBox="0 0 120 120"><g class="corner-dots"></g><g class="corner-lines"></g></svg>
+    </div>
+    <div class="intro-splash-corner intro-splash-corner--bl" aria-hidden="true">
+      <svg class="intro-corner-svg" viewBox="0 0 120 120"><g class="corner-dots"></g><g class="corner-lines"></g></svg>
+    </div>
+    <div class="intro-splash-corner intro-splash-corner--br" aria-hidden="true">
+      <svg class="intro-corner-svg" viewBox="0 0 120 120"><g class="corner-dots"></g><g class="corner-lines"></g></svg>
+    </div>
+
+    <div class="intro-splash-inner">
+      <div class="intro-splash-kicker">Ethnomathematics &amp; Threshold Art</div>
+      <h1 class="intro-splash-title">
+        <span class="intro-splash-title-word" id="intro-splash-title-word" lang="en">KOLAM</span>
+      </h1>
+
+      <div class="intro-splash-canvas-wrap" id="intro-splash-canvas-wrap">
+        <svg id="intro-splash-svg" class="intro-splash-svg" viewBox="0 0 300 300" fill="none" aria-hidden="true">
+          <!-- Pulli (dots) placed first, as a Kolam artist always begins -->
+          <g id="splash-dots"></g>
+          <!-- Continuous looped line (Kambi) traced around the dots -->
+          <g id="splash-lines"></g>
+        </svg>
+      </div>
+
+      <p class="intro-splash-text">
+        Before sunrise, across thresholds in South India, a single hand traces rice-flour dots
+        into an unbroken looping line &mdash; a Kolam. It is geometry offered as devotion: symmetry,
+        topology and rhythm drawn fresh each dawn, never meant to last, only to be made again.
+      </p>
+
+      <div class="intro-splash-status">
+        <span id="intro-splash-status-text">Placing the pulli&hellip;</span>
+      </div>
+    </div>
+
+    <!-- Bottom bar: pulli (dot) progress trail -->
+    <div class="intro-splash-bottom-bar" aria-hidden="true">
+      <div class="intro-splash-dots" id="intro-splash-dots"></div>
+    </div>
+  </div>
+
 
   <!-- Rice Paper Texture Overlay -->
   <div class="rice-paper-overlay" aria-hidden="true"></div>
@@ -259,26 +334,57 @@
        5. Loading Experience & Rotating Facts Overlay
        ------------------------------------------------------------------------ -->
   <div class="loading-overlay" id="loading-overlay">
-    <div class="loader-kolam-svg">
-      <svg viewBox="0 0 100 100" fill="none" stroke="currentColor">
-        <circle cx="50" cy="50" r="40" stroke="var(--terracotta)" stroke-width="3" stroke-dasharray="8 4" />
-        <path d="M 50 10 Q 90 50 50 90 Q 10 50 50 10 Z" stroke="var(--maroon)" stroke-width="4" fill="none" />
-        <circle cx="50" cy="50" r="10" fill="var(--gold)" />
-      </svg>
+
+    <!-- Paisley / toran border strip -->
+    <div class="loading-toran" aria-hidden="true"></div>
+
+    <!-- Falling flower petals -->
+    <div class="loading-petals" id="loading-petals" aria-hidden="true"></div>
+
+    <!-- Classical mathematical notation drifting around the loader -->
+    <div class="loading-math" aria-hidden="true">
+      <span class="loading-math-symbol loading-math-symbol--one">P<sub>i,j</sub> &isin; {0, 1}</span>
+      <span class="loading-math-symbol loading-math-symbol--two">R<sub>n</sub>(&theta;) = 2&pi; / n</span>
+      <span class="loading-math-symbol loading-math-symbol--three">G = (V, E)</span>
+      <span class="loading-math-symbol loading-math-symbol--four">V &minus; E + F = 2</span>
+      <span class="loading-math-symbol loading-math-symbol--five">r = a cos(n&theta;)</span>
+      <span class="loading-math-symbol loading-math-symbol--six">&sum;<sub>k=1</sub><sup>n</sup> &ang; e<sub>k</sub> = 2&pi;</span>
     </div>
 
-    <h3 class="loader-title" id="loading-title">THE PATTERN IS FORMING...</h3>
+    <!-- Ambient instrumental sound toggle -->
+    <button class="loading-sound-toggle" id="loading-sound-toggle" onclick="toggleAmbientMute()" aria-label="Toggle ambient instrumental sound" title="Toggle ambient instrumental sound">
+      <i class="fa-solid fa-volume-high" id="loading-sound-icon"></i>
+    </button>
 
-    <div class="fact-card">
-      <div class="fact-tag">KOLAM ETHNOMATHEMATICS</div>
-      <p class="fact-text" id="fact-text">Fetching cultural facts...</p>
+    <div class="loading-overlay-content">
+      <div class="loader-kolam-wrap" id="loader-kolam-wrap">
+        <div class="loader-kolam-svg">
+          <svg viewBox="0 0 100 100" fill="none" stroke="currentColor">
+            <circle cx="50" cy="50" r="40" stroke="var(--terracotta)" stroke-width="3" stroke-dasharray="8 4" />
+            <path d="M 50 10 Q 90 50 50 90 Q 10 50 50 10 Z" stroke="var(--maroon)" stroke-width="4" fill="none" />
+            <circle cx="50" cy="50" r="10" fill="var(--gold)" />
+          </svg>
+        </div>
+      </div>
+
+      <h3 class="loader-title" id="loading-title">THE PATTERN IS FORMING...</h3>
+
+      <div class="fact-card">
+        <div class="fact-tag">KOLAM ETHNOMATHEMATICS</div>
+        <p class="fact-text" id="fact-text">Fetching cultural facts...</p>
+      </div>
+
+      <div class="timeout-warning" id="timeout-warning">
+        <p>THE PATTERN IS TAKING LONGER THAN EXPECTED.</p>
+        <button class="btn-secondary" id="btn-loading-retry" onclick="retryLastOperation()" style="margin-top: 12px;">
+          <i class="fa-solid fa-rotate-right"></i> Try Again
+        </button>
+      </div>
     </div>
 
-    <div class="timeout-warning" id="timeout-warning">
-      <p>THE PATTERN IS TAKING LONGER THAN EXPECTED.</p>
-      <button class="btn-secondary" id="btn-loading-retry" onclick="retryLastOperation()" style="margin-top: 12px;">
-        <i class="fa-solid fa-rotate-right"></i> Try Again
-      </button>
+    <!-- Bottom middle: pulli (dot) progress trail -->
+    <div class="loading-bottom-bar" aria-hidden="true">
+      <div class="loading-progress-dots" id="loading-progress-dots"></div>
     </div>
   </div>
 
