@@ -31,16 +31,268 @@ const COMMUNITY_STORAGE_KEY = 'kolam_community_state';
 // 2. Application Initialization
 // --------------------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', () => {
+  initIntroSplash();
   initNavigation();
   initHeroCanvas();
   initVoiceChat();
   initCommunity();
   loadFacts();
   checkBackendHealth();
-  
+  initLoadingOverlayPetals();
+
   // Periodic health check every 15 seconds
   setInterval(checkBackendHealth, 15000);
 });
+
+// --------------------------------------------------------------------------
+// 2b. Entry Splash — Kolam Drawing Ritual (auto-dismisses, no button)
+// --------------------------------------------------------------------------
+const SPLASH_DURATION_MS = 10000;
+
+function initIntroSplash() {
+  const splash = document.getElementById('intro-splash');
+  if (!splash) return;
+
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const dotsGroup = document.getElementById('splash-dots');
+  const linesGroup = document.getElementById('splash-lines');
+  const statusText = document.getElementById('intro-splash-status-text');
+  const titleWord = document.getElementById('intro-splash-title-word');
+
+  // ---- 0. Center title: KOLAM cycles English → Hindi → Tamil every 3.33s ----
+  const titleCycle = [
+    { text: 'KOLAM', lang: 'en' },
+    { text: 'कोलम्', lang: 'hi' },
+    { text: 'கோலம்', lang: 'ta' },
+  ];
+  let titleIndex = 0;
+  let titleTimer = null;
+  if (titleWord && !prefersReducedMotion) {
+    titleTimer = setInterval(() => {
+      titleIndex = (titleIndex + 1) % titleCycle.length;
+      titleWord.classList.add('is-switching');
+      setTimeout(() => {
+        titleWord.textContent = titleCycle[titleIndex].text;
+        titleWord.setAttribute('lang', titleCycle[titleIndex].lang);
+        titleWord.classList.remove('is-switching');
+      }, 280);
+    }, 3333);
+  }
+
+  // ---- 1. Build a 5x5 Pulli (dot) grid, in the order a Kolam artist places them ----
+  const GRID = [60, 105, 150, 195, 240];
+  const dots = [];
+  GRID.forEach(y => GRID.forEach(x => dots.push({ x, y })));
+
+  // Center-outward placement order feels more like a hand actually drawing it
+  dots.sort((a, b) => {
+    const da = Math.hypot(a.x - 150, a.y - 150);
+    const db = Math.hypot(b.x - 150, b.y - 150);
+    return da - db;
+  });
+
+  const DOT_PHASE_START = 0.9;   // seconds
+  const DOT_PHASE_END = 3.2;     // seconds
+  const dotStep = (DOT_PHASE_END - DOT_PHASE_START) / dots.length;
+
+  dots.forEach((d, i) => {
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', d.x);
+    circle.setAttribute('cy', d.y);
+    circle.setAttribute('r', 3.4);
+    circle.setAttribute('fill', 'var(--gold)');
+    circle.classList.add('splash-dot');
+    circle.style.animationDelay = `${(DOT_PHASE_START + i * dotStep).toFixed(2)}s`;
+    dotsGroup.appendChild(circle);
+  });
+
+  // ---- 2. Trace the continuous looping line (Kambi) around the dots ----
+  // Four petal loops radiating from the center dot, then an outer border loop
+  // that ties the whole pulli grid together — the way a real Kolam is closed.
+  const kolamPaths = [
+    { d: 'M 150 150 C 108 138, 84 90, 150 60 C 216 90, 192 138, 150 150', color: 'var(--terracotta)', width: 3 },
+    { d: 'M 150 150 C 162 108, 210 84, 240 150 C 210 216, 162 192, 150 150', color: 'var(--terracotta)', width: 3 },
+    { d: 'M 150 150 C 192 162, 216 210, 150 240 C 84 210, 108 162, 150 150', color: 'var(--terracotta)', width: 3 },
+    { d: 'M 150 150 C 138 192, 90 216, 60 150 C 90 84, 138 108, 150 150', color: 'var(--terracotta)', width: 3 },
+    { d: 'M 60 60 Q 150 20 240 60 Q 280 150 240 240 Q 150 280 60 240 Q 20 150 60 60 Z', color: 'var(--maroon)', width: 2.5 },
+  ];
+
+  const LINE_PHASE_START = 3.4;  // seconds, right after the last dot lands
+  const LINE_PHASE_END = 8.6;    // seconds
+  const perPathDuration = 1.15;
+  const lineStep = (LINE_PHASE_END - LINE_PHASE_START - perPathDuration) / (kolamPaths.length - 1);
+
+  kolamPaths.forEach((p, i) => {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', p.d);
+    path.setAttribute('pathLength', '1');
+    path.setAttribute('stroke', p.color);
+    path.setAttribute('stroke-width', p.width);
+    path.classList.add('splash-path');
+    const delay = LINE_PHASE_START + i * lineStep;
+    path.style.animationDelay = `${delay.toFixed(2)}s`;
+    path.style.animationDuration = `${perPathDuration}s`;
+    linesGroup.appendChild(path);
+  });
+
+  // ---- 2b. Four corner Kolam motifs — a small looped flower around a mini pulli grid ----
+  const cornerSvgs = document.querySelectorAll('.intro-corner-svg');
+  const CORNER_GRID = [20, 60, 100];
+  const cornerDots = [];
+  CORNER_GRID.forEach(y => CORNER_GRID.forEach(x => cornerDots.push({ x, y })));
+  const cornerPaths = [
+    'M 60 60 C 40 52, 30 30, 60 20 C 90 30, 80 52, 60 60',
+    'M 60 60 C 68 40, 90 30, 100 60 C 90 90, 68 80, 60 60',
+    'M 60 60 C 80 68, 90 90, 60 100 C 30 90, 40 68, 60 60',
+    'M 60 60 C 52 80, 30 90, 20 60 C 30 30, 52 40, 60 60',
+    'M 20 20 Q 60 6 100 20 Q 114 60 100 100 Q 60 114 20 100 Q 6 60 20 20 Z',
+  ];
+
+  cornerSvgs.forEach((svg, ci) => {
+    const dotsG = svg.querySelector('.corner-dots');
+    const linesG = svg.querySelector('.corner-lines');
+    const baseDelay = 4.6 + ci * 0.35;
+
+    cornerDots.forEach((d, i) => {
+      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      c.setAttribute('cx', d.x);
+      c.setAttribute('cy', d.y);
+      c.setAttribute('r', 2.2);
+      c.setAttribute('fill', 'var(--gold)');
+      c.classList.add('corner-dot');
+      c.style.animationDelay = `${(baseDelay + i * 0.09).toFixed(2)}s`;
+      dotsG.appendChild(c);
+    });
+
+    const lineStart = baseDelay + cornerDots.length * 0.09 + 0.15;
+    cornerPaths.forEach((d, i) => {
+      const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      p.setAttribute('d', d);
+      p.setAttribute('pathLength', '1');
+      p.setAttribute('stroke', i === cornerPaths.length - 1 ? 'var(--maroon)' : 'var(--terracotta)');
+      p.setAttribute('stroke-width', i === cornerPaths.length - 1 ? 2 : 2.2);
+      p.classList.add('corner-path');
+      p.style.animationDelay = `${(lineStart + i * 0.32).toFixed(2)}s`;
+      p.style.animationDuration = '0.55s';
+      linesG.appendChild(p);
+    });
+  });
+
+  // ---- 3. Narrate the drawing as it happens ----
+  const statusBeats = [
+    { t: 0,    msg: 'Placing the pulli…' },
+    { t: DOT_PHASE_END + 0.1, msg: 'Tracing the first loop…' },
+    { t: LINE_PHASE_START + perPathDuration + lineStep, msg: 'Closing the pattern…' },
+    { t: LINE_PHASE_END, msg: 'Kolam complete.' },
+  ];
+  const statusTimers = statusBeats.map(b =>
+    setTimeout(() => { if (statusText) statusText.textContent = b.msg; }, b.t * 1000)
+  );
+
+  // ---- 4. Pulli progress trail — one dot lights per second across the 10s ----
+  const dotsRow = document.getElementById('intro-splash-dots');
+  const PROGRESS_DOT_COUNT = 10;
+  const progressDots = [];
+  if (dotsRow) {
+    for (let i = 0; i < PROGRESS_DOT_COUNT; i++) {
+      const d = document.createElement('span');
+      d.classList.add('intro-splash-progress-dot');
+      dotsRow.appendChild(d);
+      progressDots.push(d);
+    }
+  }
+  let dotProgressTimer = null;
+  if (prefersReducedMotion) {
+    progressDots.forEach(d => d.classList.add('is-lit'));
+  } else {
+    let litCount = 0;
+    dotProgressTimer = setInterval(() => {
+      if (litCount < progressDots.length) {
+        progressDots[litCount].classList.add('is-lit');
+        litCount++;
+      }
+    }, SPLASH_DURATION_MS / PROGRESS_DOT_COUNT);
+  }
+
+  // ---- 5. Falling flower petals — ambient, continuous for the life of the splash ----
+  const petalContainer = document.getElementById('intro-splash-petals');
+  if (petalContainer && !prefersReducedMotion) {
+    const petalColors = ['var(--terracotta)', 'var(--gold)', 'var(--maroon)', 'var(--saffron)'];
+    const rand = (min, max) => Math.random() * (max - min) + min;
+    for (let i = 0; i < 14; i++) {
+      const petal = document.createElement('span');
+      petal.classList.add('intro-petal');
+      petal.style.setProperty('--left', `${rand(2, 96)}%`);
+      petal.style.setProperty('--size', `${rand(8, 15).toFixed(1)}px`);
+      petal.style.setProperty('--duration', `${rand(5, 9).toFixed(2)}s`);
+      petal.style.setProperty('--delay', `${rand(0, 5).toFixed(2)}s`);
+      petal.style.setProperty('--rot', `${rand(0, 360).toFixed(0)}deg`);
+      petal.style.setProperty('--sway', `${rand(-45, 45).toFixed(0)}px`);
+      petal.style.background = petalColors[i % petalColors.length];
+      petalContainer.appendChild(petal);
+    }
+  }
+
+  // ---- 6. Cursor parallax on the center kolam + a trailing shimmer of gold dust ----
+  const canvasWrap = document.getElementById('intro-splash-canvas-wrap');
+  let parallaxRAF = null;
+  let pointerHandler = null;
+  if (!prefersReducedMotion) {
+    const target = { nx: 0, ny: 0 };
+    const current = { nx: 0, ny: 0 };
+    let lastDustTime = 0;
+
+    const spawnGoldDust = (x, y) => {
+      const p = document.createElement('span');
+      p.className = 'gold-dust-particle';
+      p.style.left = `${x}px`;
+      p.style.top = `${y}px`;
+      splash.appendChild(p);
+      p.addEventListener('animationend', () => p.remove());
+    };
+
+    pointerHandler = (e) => {
+      const rect = splash.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      target.nx = (x / rect.width - 0.5) * 2;
+      target.ny = (y / rect.height - 0.5) * 2;
+
+      const now = performance.now();
+      if (now - lastDustTime > 55) {
+        lastDustTime = now;
+        spawnGoldDust(x, y);
+      }
+    };
+    splash.addEventListener('pointermove', pointerHandler);
+
+    const parallaxLoop = () => {
+      current.nx += (target.nx - current.nx) * 0.08;
+      current.ny += (target.ny - current.ny) * 0.08;
+      if (canvasWrap) {
+        canvasWrap.style.transform =
+          `translate(${(current.nx * 8).toFixed(2)}px, ${(current.ny * 8).toFixed(2)}px) rotate(${(current.nx * 1.5).toFixed(2)}deg)`;
+      }
+      parallaxRAF = requestAnimationFrame(parallaxLoop);
+    };
+    parallaxRAF = requestAnimationFrame(parallaxLoop);
+  }
+
+  // ---- 7. Reveal the dashboard automatically — no dismiss button ----
+  const totalDelay = prefersReducedMotion ? 2000 : SPLASH_DURATION_MS;
+  setTimeout(() => {
+    splash.classList.add('is-hiding');
+    document.body.classList.remove('splash-locked');
+    if (titleTimer) clearInterval(titleTimer);
+    if (dotProgressTimer) clearInterval(dotProgressTimer);
+    if (parallaxRAF) cancelAnimationFrame(parallaxRAF);
+    if (pointerHandler) splash.removeEventListener('pointermove', pointerHandler);
+    setTimeout(() => {
+      splash.remove();
+      statusTimers.forEach(clearTimeout);
+    }, 900);
+  }, totalDelay);
+}
 
 // --------------------------------------------------------------------------
 // 3. Navigation & Health Check Logic
@@ -477,6 +729,9 @@ function showLoadingState(title = "THE PATTERN IS FORMING...") {
   if (overlay) overlay.classList.add('active');
 
   startFactsRotator();
+  startLoadingProgressDots();
+  attachLoadingParallax();
+  startAmbientInstrumental(); // synthesized, mind-soothing instrumental — user gesture already granted by the button click that got us here
 
   // Client-side 35-second timeout safeguard
   loadingTimeoutTimer = setTimeout(() => {
@@ -488,7 +743,263 @@ function hideLoadingState() {
   const overlay = document.getElementById('loading-overlay');
   if (overlay) overlay.classList.remove('active');
   stopFactsRotator();
+  stopLoadingProgressDots();
+  detachLoadingParallax();
+  stopAmbientInstrumental();
   if (loadingTimeoutTimer) clearTimeout(loadingTimeoutTimer);
+}
+
+// --------------------------------------------------------------------------
+// 5b. Loading Screen — Falling Petals
+// --------------------------------------------------------------------------
+function initLoadingOverlayPetals() {
+  const petalContainer = document.getElementById('loading-petals');
+  if (!petalContainer) return;
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (prefersReducedMotion) return;
+
+  const petalColors = ['var(--terracotta)', 'var(--gold)', 'var(--maroon)', 'var(--saffron)'];
+  const rand = (min, max) => Math.random() * (max - min) + min;
+  for (let i = 0; i < 12; i++) {
+    const petal = document.createElement('span');
+    petal.classList.add('intro-petal'); // reuses the entry-splash petalFall keyframes
+    petal.style.setProperty('--left', `${rand(2, 96)}%`);
+    petal.style.setProperty('--size', `${rand(7, 14).toFixed(1)}px`);
+    petal.style.setProperty('--duration', `${rand(5, 9).toFixed(2)}s`);
+    petal.style.setProperty('--delay', `${rand(0, 5).toFixed(2)}s`);
+    petal.style.setProperty('--rot', `${rand(0, 360).toFixed(0)}deg`);
+    petal.style.setProperty('--sway', `${rand(-45, 45).toFixed(0)}px`);
+    petal.style.background = petalColors[i % petalColors.length];
+    petalContainer.appendChild(petal);
+  }
+}
+
+// --------------------------------------------------------------------------
+// 5c. Loading Screen — Pulli (Dot) Progress Chase
+// --------------------------------------------------------------------------
+let loadingDotsTimer = null;
+
+function startLoadingProgressDots() {
+  const container = document.getElementById('loading-progress-dots');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const DOT_COUNT = 9;
+  const dots = [];
+  for (let i = 0; i < DOT_COUNT; i++) {
+    const d = document.createElement('span');
+    d.classList.add('loading-progress-dot');
+    container.appendChild(d);
+    dots.push(d);
+  }
+
+  if (prefersReducedMotion) {
+    dots.forEach(d => d.classList.add('is-lit'));
+    return;
+  }
+
+  // Actual generation time is unknown, so the pulli trail chases forward as a
+  // continuous "still drawing" signal rather than claiming a false completion %.
+  let lit = 0;
+  loadingDotsTimer = setInterval(() => {
+    dots.forEach(d => d.classList.remove('is-lit'));
+    for (let k = 0; k <= lit; k++) dots[k].classList.add('is-lit');
+    lit = (lit + 1) % dots.length;
+  }, 500);
+}
+
+function stopLoadingProgressDots() {
+  if (loadingDotsTimer) clearInterval(loadingDotsTimer);
+  loadingDotsTimer = null;
+  const container = document.getElementById('loading-progress-dots');
+  if (container) container.innerHTML = '';
+}
+
+// --------------------------------------------------------------------------
+// 5d. Loading Screen — Cursor Parallax + Gold-Dust Trail
+// --------------------------------------------------------------------------
+let loadingParallaxRAF = null;
+let loadingPointerHandler = null;
+
+function attachLoadingParallax() {
+  const overlay = document.getElementById('loading-overlay');
+  const wrap = document.getElementById('loader-kolam-wrap');
+  if (!overlay || !wrap) return;
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (prefersReducedMotion) return;
+
+  const target = { nx: 0, ny: 0 };
+  const current = { nx: 0, ny: 0 };
+  let lastDustTime = 0;
+
+  const spawnGoldDust = (x, y) => {
+    const p = document.createElement('span');
+    p.className = 'gold-dust-particle';
+    p.style.left = `${x}px`;
+    p.style.top = `${y}px`;
+    overlay.appendChild(p);
+    p.addEventListener('animationend', () => p.remove());
+  };
+
+  loadingPointerHandler = (e) => {
+    const rect = overlay.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    target.nx = (x / rect.width - 0.5) * 2;
+    target.ny = (y / rect.height - 0.5) * 2;
+
+    const now = performance.now();
+    if (now - lastDustTime > 55) {
+      lastDustTime = now;
+      spawnGoldDust(x, y);
+    }
+  };
+  overlay.addEventListener('pointermove', loadingPointerHandler);
+
+  const parallaxLoop = () => {
+    current.nx += (target.nx - current.nx) * 0.08;
+    current.ny += (target.ny - current.ny) * 0.08;
+    wrap.style.transform =
+      `translate(${(current.nx * 10).toFixed(2)}px, ${(current.ny * 10).toFixed(2)}px) rotate(${(current.nx * 2).toFixed(2)}deg)`;
+    loadingParallaxRAF = requestAnimationFrame(parallaxLoop);
+  };
+  loadingParallaxRAF = requestAnimationFrame(parallaxLoop);
+}
+
+function detachLoadingParallax() {
+  const overlay = document.getElementById('loading-overlay');
+  const wrap = document.getElementById('loader-kolam-wrap');
+  if (overlay && loadingPointerHandler) overlay.removeEventListener('pointermove', loadingPointerHandler);
+  loadingPointerHandler = null;
+  if (loadingParallaxRAF) cancelAnimationFrame(loadingParallaxRAF);
+  loadingParallaxRAF = null;
+  if (wrap) wrap.style.transform = '';
+}
+
+// --------------------------------------------------------------------------
+// 5e. Loading Screen — Synthesized Ambient Instrumental
+// (Composed live via the Web Audio API — a tanpura-style drone plus soft
+//  pentatonic bell tones. No external audio file is used.)
+// --------------------------------------------------------------------------
+let ambientAudioCtx = null;
+let ambientMasterGain = null;
+let ambientDroneNodes = [];
+let ambientBellTimer = null;
+let ambientIsPlaying = false;
+let ambientMuted = false;
+
+function ensureAmbientAudioCtx() {
+  if (!ambientAudioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    ambientAudioCtx = new AC();
+  }
+  return ambientAudioCtx;
+}
+
+function startAmbientInstrumental() {
+  if (ambientMuted || ambientIsPlaying) return;
+  const ctx = ensureAmbientAudioCtx();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  ambientIsPlaying = true;
+
+  ambientMasterGain = ctx.createGain();
+  ambientMasterGain.gain.setValueAtTime(0, ctx.currentTime);
+  ambientMasterGain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 2);
+
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.value = 1400;
+  ambientMasterGain.connect(filter);
+  filter.connect(ctx.destination);
+
+  // Tanpura-style drone: Sa (C3), Pa (G3), Sa octave (C4) — gently detuned, slow breathing
+  const droneFreqs = [130.81, 196.00, 261.63];
+  ambientDroneNodes = [];
+  droneFreqs.forEach((freq, i) => {
+    const osc = ctx.createOscillator();
+    osc.type = i === 2 ? 'sine' : 'triangle';
+    osc.frequency.value = freq;
+    osc.detune.value = (i - 1) * 4;
+
+    const oscGain = ctx.createGain();
+    oscGain.gain.value = i === 0 ? 0.55 : i === 1 ? 0.32 : 0.16;
+
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 0.05 + i * 0.015;
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = 0.1;
+    lfo.connect(lfoGain);
+    lfoGain.connect(oscGain.gain);
+
+    osc.connect(oscGain);
+    oscGain.connect(ambientMasterGain);
+    osc.start();
+    lfo.start();
+    ambientDroneNodes.push(osc, lfo);
+  });
+
+  // Soft, sparse pentatonic bell tones (Sa Re Ga Pa Dha) — like a distant temple bell
+  const pentatonic = [523.25, 587.33, 659.25, 783.99, 880.00];
+  const playBell = () => {
+    if (!ambientIsPlaying) return;
+    const note = pentatonic[Math.floor(Math.random() * pentatonic.length)];
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = note;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.08, ctx.currentTime + 0.1);
+    gain.gain.exponentialRampToValueAtTime(0.0008, ctx.currentTime + 3.2);
+    osc.connect(gain);
+    gain.connect(ambientMasterGain);
+    osc.start();
+    osc.stop(ctx.currentTime + 3.3);
+
+    ambientBellTimer = setTimeout(playBell, 3400 + Math.random() * 2600);
+  };
+  ambientBellTimer = setTimeout(playBell, 1800);
+}
+
+function stopAmbientInstrumental() {
+  if (!ambientIsPlaying) return;
+  ambientIsPlaying = false;
+  if (ambientBellTimer) clearTimeout(ambientBellTimer);
+
+  if (ambientMasterGain && ambientAudioCtx) {
+    const ctx = ambientAudioCtx;
+    const g = ambientMasterGain;
+    const nodesToStop = ambientDroneNodes.slice();
+    try {
+      g.gain.cancelScheduledValues(ctx.currentTime);
+      g.gain.setValueAtTime(g.gain.value, ctx.currentTime);
+      g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.5);
+    } catch (e) { /* no-op */ }
+
+    setTimeout(() => {
+      nodesToStop.forEach(n => {
+        try { n.stop(); } catch (e) { /* already stopped */ }
+        try { n.disconnect(); } catch (e) { /* no-op */ }
+      });
+      try { g.disconnect(); } catch (e) { /* no-op */ }
+    }, 600);
+  }
+  ambientDroneNodes = [];
+}
+
+function toggleAmbientMute() {
+  ambientMuted = !ambientMuted;
+  const icon = document.getElementById('loading-sound-icon');
+  if (ambientMuted) {
+    stopAmbientInstrumental();
+    if (icon) icon.className = 'fa-solid fa-volume-xmark';
+  } else {
+    if (icon) icon.className = 'fa-solid fa-volume-high';
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay && overlay.classList.contains('active')) startAmbientInstrumental();
+  }
 }
 
 async function generateKolamFlow(promptText) {
